@@ -1,0 +1,12 @@
+dist
+GUI/__pycache__/**
+GUI/Bilder/**
+
+GUI/BV/__pycache__/**
+GUI/BV/known_faces
+
+GUI/user.db
+GUI/BV/haarcascade_frontalface_default.xml
+GUI/SP/__pycache__/AnsteuerungLib.cpython-36.pyc
+GUI/UserManagement/__pycache__/UserLib.cpython-36.pyc
+GUI/UserManagement/__pycache__/UserManagement.cpython-36.pyc
