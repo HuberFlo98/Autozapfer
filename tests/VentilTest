@@ -38,6 +38,6 @@ for n in range(4):
 	time.sleep(3)
 	GPIO.output( Zapfhahn2, GPIO.LOW)
 	GPIO.output( Magnetventil_2, GPIO.HIGH)
-	print("Magnetventil2 an")
+	print("Magnetventil_2 an")
 
 GPIO.cleanup()
