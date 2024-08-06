@@ -1,51 +1,20 @@
 import cv2 as cv
 import numpy as np
 
-
-# Rotation
+# Rotation function
 def rotate(img, angle, rotPoint=None):
-    (height,width) = img.shape[:2]
+    (height, width) = img.shape[:2]
 
     if rotPoint is None:
-        rotPoint = (width//2,height//2)
+        rotPoint = (width // 2, height // 2)
     
     rotMat = cv.getRotationMatrix2D(rotPoint, angle, 1.0)
-    dimensions = (width,height)
+    dimensions = (width, height)
 
     return cv.warpAffine(img, rotMat, dimensions)
 
-# Read in an image
-img = cv.imread('testimages\img9913.png')
-cv.imshow('Park', img)
-
-# #Rotate +90°
-# rotated = rotate(img, +90)
-# cv.imshow('Rotated', rotated)
-
-# Converting to grayscale
-gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-#cv.imshow('Gray', gray)
-
-# Blur 
-blur = cv.GaussianBlur(gray, (3,3), cv.BORDER_DEFAULT)
-
-#cropped
-#                     Höhe     Länge
-cropped_image = blur[200:800 ,0:1100] # Slicing to crop the image
-#cv.imshow('cropped_image', cropped_image)
-
+# Extend a line to the borders of the image
 def extend_line(x1, y1, x2, y2, img_shape):
-    """
-    Extend a line to the borders of the image.
-    
-    Parameters:
-    x1, y1: Coordinates of the start point.
-    x2, y2: Coordinates of the end point.
-    img_shape: Shape of the image (height, width).
-    
-    Returns:
-    (x1_ext, y1_ext, x2_ext, y2_ext): The extended line coordinates.
-    """
     height, width = img_shape[:2]
 
     # Calculate line equation parameters: y = mx + c
@@ -97,7 +66,55 @@ def extend_line(x1, y1, x2, y2, img_shape):
         # Vertical line
         return (x1, 0, x2, height)
 
+# Calculate angle of a line
+def calculate_angle(line):
+    x1, y1, x2, y2 = line
+    return np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
 
+# Calculate perpendicular distance from a point to a line
+def point_to_line_distance(x0, y0, x1, y1, x2, y2):
+    """
+    Calculate the perpendicular distance from a point (x0, y0) to a line defined by (x1, y1) -> (x2, y2).
+    """
+    # Using the line equation Ax + By + C = 0, find the perpendicular distance.
+    A = y2 - y1
+    B = x1 - x2
+    C = x2 * y1 - x1 * y2
+    
+    # Distance from point to line
+    distance = abs(A * x0 + B * y0 + C) / np.sqrt(A**2 + B**2)
+    return distance
+
+# Find a line parallel and separate from a given line
+def find_parallel_and_separate_line(lines, reference_line, angle_threshold=5, min_distance=10):
+    x1_ref, y1_ref, x2_ref, y2_ref = reference_line
+    reference_angle = calculate_angle(reference_line)
+
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        angle = calculate_angle((x1, y1, x2, y2))
+        
+        # Check if the line is parallel within the angle threshold and separate by min_distance
+        if abs(reference_angle - angle) < angle_threshold:
+            # Calculate midpoint of the line to measure distance
+            mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
+            distance = point_to_line_distance(mid_x, mid_y, x1_ref, y1_ref, x2_ref, y2_ref)
+            if distance >= min_distance:
+                return line[0]
+    return None
+
+# Read in an image
+img = cv.imread('testimages/img9653.png')
+cv.imshow('Original Image', img)
+
+# Convert to grayscale
+gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+# Blur 
+blur = cv.GaussianBlur(gray, (7, 7), cv.BORDER_DEFAULT)
+
+# Cropped image
+cropped_image = blur[400:800, 0:1150]  # Slicing to crop the image
 
 # Initialize LSD (Line Segment Detector)
 lsd = cv.createLineSegmentDetector(0)
@@ -109,7 +126,7 @@ lines = lsd.detect(cropped_image)[0]  # Get the detected lines from the first po
 if lines is not None:
     # Calculate the length of each line
     line_lengths = []
-    for i, line in enumerate(lines):
+    for line in lines:
         x1, y1, x2, y2 = line[0]
         length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         line_lengths.append((length, line))
@@ -117,22 +134,27 @@ if lines is not None:
     # Sort lines by length in descending order
     line_lengths.sort(reverse=True, key=lambda x: x[0])
 
-    # Select the two longest lines
-    two_longest_lines = [line for _, line in line_lengths[:2]]
+    # Select the longest line
+    longest_line = line_lengths[0][1][0]
+
+    # Find a parallel and separate line
+    parallel_line = find_parallel_and_separate_line(lines, longest_line, angle_threshold=5, min_distance=2)
 
     # Create a copy of the image to draw on
-    drawn_img = cropped_image.copy()
+    drawn_img = cv.cvtColor(cropped_image, cv.COLOR_GRAY2BGR)
 
-    # Extend and draw only the two longest lines on the image
-    for line in two_longest_lines:
-        x1, y1, x2, y2 = line[0]
+    if parallel_line is not None:
+        # Extend and draw the longest line and the parallel line
+        x1, y1, x2, y2 = longest_line
         x1_ext, y1_ext, x2_ext, y2_ext = extend_line(x1, y1, x2, y2, cropped_image.shape)
-        
-        # Draw the extended line on the image
         cv.line(drawn_img, (x1_ext, y1_ext), (x2_ext, y2_ext), (0, 255, 0), 2)
 
+        px1, py1, px2, py2 = parallel_line
+        px1_ext, py1_ext, px2_ext, py2_ext = extend_line(px1, py1, px2, py2, cropped_image.shape)
+        cv.line(drawn_img, (px1_ext, py1_ext), (px2_ext, py2_ext), (255, 0, 0), 2)
+
     # Display the result
-    cv.imshow("Two Longest Lines Extended", drawn_img)
+    cv.imshow("Longest and Parallel Line Extended", drawn_img)
     cv.waitKey(0)
     cv.destroyAllWindows()
 
@@ -140,5 +162,3 @@ else:
     print("No lines detected.")
 
 cv.waitKey(0)
-
-
