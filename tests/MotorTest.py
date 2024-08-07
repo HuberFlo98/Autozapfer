@@ -33,7 +33,7 @@ for n in range(1):
 	#GPIO.output( Motor2_einfahren, GPIO.LOW)
 	#GPIO.output( Motor2_ausfahren, GPIO.HIGH)
 	#print("ausfahren")
-	#time.sleep(5)
+	#time.sleep(10)
 	GPIO.output( Motor1_einfahren, GPIO.HIGH)
 	GPIO.output( Motor1_ausfahren, GPIO.LOW)
 	GPIO.output( Motor2_einfahren, GPIO.HIGH)
