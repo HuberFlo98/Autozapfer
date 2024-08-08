@@ -73,44 +73,85 @@ def point_to_line_distance(x0, y0, x1, y1, x2, y2):
     distance = abs(A * x0 + B * y0 + C) / np.sqrt(A**2 + B**2)
     return distance
 
-# Find the nearest parallel line to the longest line with a minimum distance
-def find_nearest_parallel_line(lines, reference_line, angle_threshold=5, min_distance=10):
-    x1_ref, y1_ref, x2_ref, y2_ref = reference_line
-    reference_angle = calculate_angle(reference_line)
+# Function to merge collinear vertical lines
+def merge_collinear_lines(lines, angle_threshold=15, distance_threshold=10):
+    """
+    Merge lines that are approximately vertical and collinear.
+    """
+    merged_lines = []
+    used_lines = [False] * len(lines)
 
-    min_distance_found = float('inf')
-    nearest_parallel_line = None
-    for line in lines:
+    for i, line in enumerate(lines):
+        if used_lines[i]:
+            continue
+
         x1, y1, x2, y2 = line[0]
-        angle = calculate_angle((x1, y1, x2, y2))
+        current_angle = calculate_angle((x1, y1, x2, y2))
 
-        # Check if the line is parallel within the angle threshold
-        if abs(reference_angle - angle) < angle_threshold:
-            # Calculate midpoint of the line to measure distance
-            mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
-            distance = point_to_line_distance(mid_x, mid_y, x1_ref, y1_ref, x2_ref, y2_ref)
-            if min_distance < distance < min_distance_found:  # Ensure it meets minimum distance
-                min_distance_found = distance
-                nearest_parallel_line = line[0]
-    return nearest_parallel_line
+        # Check if the line is approximately vertical
+        if (90 - angle_threshold < abs(current_angle) < 90 + angle_threshold) or \
+           (270 - angle_threshold < abs(current_angle) < 270 + angle_threshold):
 
+            # Initialize merged line as current line
+            x1_min, x2_max = min(x1, x2), max(x1, x2)
+            y1_min, y2_max = min(y1, y2), max(y1, y2)
 
+            for j, other_line in enumerate(lines):
+                if used_lines[j] or i == j:
+                    continue
 
+                ox1, oy1, ox2, oy2 = other_line[0]
+                other_angle = calculate_angle((ox1, oy1, ox2, oy2))
 
+                # Check if other line is approximately vertical and collinear
+                if abs(current_angle - other_angle) < angle_threshold:
+                    # Check proximity of line endpoints
+                    if (point_to_line_distance(ox1, oy1, x1, y1, x2, y2) < distance_threshold and
+                        point_to_line_distance(ox2, oy2, x1, y1, x2, y2) < distance_threshold):
 
+                        # Update merged line endpoints
+                        x1_min = min(x1_min, ox1, ox2)
+                        x2_max = max(x2_max, ox1, ox2)
+                        y1_min = min(y1_min, oy1, oy2)
+                        y2_max = max(y2_max, oy1, oy2)
+                        used_lines[j] = True
 
+            # Add the merged line
+            merged_lines.append([(x1_min, y1_min, x2_max, y2_max)])
+            used_lines[i] = True
 
+    return merged_lines
+
+def detect_lines_in_region(image, x_min, x_max, vertical_threshold):
+    """
+    Detect and merge vertical lines within a specified x-coordinate range in the image.
+    """
+    # Crop the image to the specified region
+    cropped_region = image[:, x_min:x_max]
+
+    # Initialize LSD (Line Segment Detector)
+    lsd = cv.createLineSegmentDetector(0)
+
+    # Detect lines in the cropped region
+    lines = lsd.detect(cropped_region)[0]  # Get the detected lines from the first position of the tuple
+
+    # Adjust line coordinates back to original image coordinates
+    if lines is not None:
+        lines = [np.array([line[0] + [x_min, 0, x_min, 0]]) for line in lines]
+
+    # Filter and merge vertical lines
+    vertical_lines = [line for line in lines if 
+                      (90 - vertical_threshold < abs(calculate_angle(line[0])) < 90 + vertical_threshold) or
+                      (270 - vertical_threshold < abs(calculate_angle(line[0])) < 270 + vertical_threshold)]
+
+    # Merge collinear lines
+    merged_lines = merge_collinear_lines(vertical_lines, angle_threshold=vertical_threshold, distance_threshold=10)
+
+    return merged_lines
 
 # Read image
-img = cv.imread('testimages/img8020.png')
+img = cv.imread('testimages/img9006.png')
 pts = np.array([[0, 200], [700, 180], [1080, 136], [1080, 840], [0, 780]])
-
-
-
-
-
-
-
 
 # Convert to grayscale
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -137,59 +178,26 @@ bg = np.ones_like(croped, np.uint8) * 255
 cv.bitwise_not(bg, bg, mask=mask)
 dst2 = bg + dst
 
-# Initialize LSD (Line Segment Detector)
-lsd = cv.createLineSegmentDetector(0)
-
-# Detect lines in the image
-lines = lsd.detect(dst2)[0]  # Get the detected lines from the first position of the tuple
-
 # Create a copy of the image to draw on
 drawn_img = cv.cvtColor(dst2, cv.COLOR_GRAY2BGR)
 
 # Define the angle range to include only vertical lines (e.g., within ±15 degrees of 90 or 270)
 vertical_threshold = 15
 
-# Check if lines are detected
-if lines is not None:
-    # Calculate the length of each line
-    line_lengths = []
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-        length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-        angle = calculate_angle((x1, y1, x2, y2))
+# Check if lines are detected in the initial region (0 to 1200 x-coordinates)
+x_min, x_max = 0, 1200
+merged_lines = detect_lines_in_region(dst2, x_min, x_max, vertical_threshold)
 
-        # Include only vertical lines
-        if (90 - vertical_threshold < abs(angle) < 90 + vertical_threshold) or \
-           (270 - vertical_threshold < abs(angle) < 270 + vertical_threshold):
-            line_lengths.append((length, line))
+# If no lines found in the initial region, check the entire image
+if not merged_lines:
+    merged_lines = detect_lines_in_region(dst2, 0, dst2.shape[1], vertical_threshold)
 
-            # Draw all detected vertical lines
-            cv.line(drawn_img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 1)
+# Draw merged lines
+for line in merged_lines:
+    x1, y1, x2, y2 = line[0]
+    cv.line(drawn_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
-    # Sort lines by length in descending order
-    line_lengths.sort(reverse=True, key=lambda x: x[0])
-
-    if line_lengths:
-        # Select the longest line
-        longest_line = line_lengths[0][1][0]
-
-        # Find the nearest parallel line
-        nearest_parallel_line = find_nearest_parallel_line(lines, longest_line, angle_threshold=10, min_distance=5)
-
-        # Draw the longest line in red
-        x1, y1, x2, y2 = longest_line
-        x1_ext, y1_ext, x2_ext, y2_ext = extend_line(x1, y1, x2, y2, dst2.shape)
-        cv.line(drawn_img, (x1_ext, y1_ext), (x2_ext, y2_ext), (0, 0, 255), 2)
-
-        # Draw the nearest parallel line in green if it meets the minimum distance requirement
-        if nearest_parallel_line is not None:
-            nx1, ny1, nx2, ny2 = nearest_parallel_line
-            nx1_ext, ny1_ext, nx2_ext, ny2_ext = extend_line(nx1, ny1, nx2, ny2, dst2.shape)
-            cv.line(drawn_img, (nx1_ext, ny1_ext), (nx2_ext, ny2_ext), (0, 255, 0), 1)
-
-    # Display the result
-    cv.imshow("Vertical Lines", drawn_img)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-else:
-    print("No lines detected.")
+# Display the result
+cv.imshow("Merged Vertical Lines", drawn_img)
+cv.waitKey(0)
+cv.destroyAllWindows()
