@@ -150,7 +150,7 @@ def detect_lines_in_region(image, x_min, x_max, vertical_threshold):
     return merged_lines
 
 # Read image
-img = cv.imread('testimages/img9006.png')
+img = cv.imread('testimages/img5023.png')
 pts = np.array([[0, 200], [700, 180], [1080, 136], [1080, 840], [0, 780]])
 
 # Convert to grayscale
