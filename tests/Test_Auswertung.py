@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 
 # Load the image
-input_image = cv2.imread('testimages/img163.png')
+input_image = cv2.imread('testimages/img9041.png')
 
 # Define the points for cropping
-pts = np.array([[0, 220], [1050, 220], [1050, 770], [0, 770]])
+pts = np.array([[0, 220], [1150, 220], [1150, 770], [0, 770]])
 
 # Crop the bounding rectangle
 rect = cv2.boundingRect(pts)
@@ -19,10 +19,15 @@ gray_image = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 img_blur = cv2.GaussianBlur(gray_image, (7, 7), 0)
 
 # Apply Canny edge detection
-img_canny = cv2.Canny(img_blur, 30, 70)
+img_canny = cv2.Canny(img_blur, 1, 35)
 
 # Invert the Canny image
 img_canny = cv2.bitwise_not(img_canny)
+
+
+
+
+
 
 # Find contours
 contours, hierarchy = cv2.findContours(cv2.bitwise_not(img_canny), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -48,6 +53,11 @@ for length, contour in two_longest_contours:
 
     # Display the length of each edge
     print(f"Edge length: {length}")
+
+
+
+
+
 
 # Display the results
 cv2.imshow('Cropped Image with Longest Contours', cropped)

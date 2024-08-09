@@ -1,43 +1,43 @@
 import cv2 as cv
 import numpy as np
 
-# Function to extend a line to the borders of the image
+# Funktion zum Erweitern einer Linie bis zu den Rändern des Bildes
 def extend_line(x1, y1, x2, y2, img_shape):
     height, width = img_shape[:2]
 
-    # Calculate line equation parameters: y = mx + c
+    # Berechnung der Liniengleichung: y = mx + c
     if x2 - x1 != 0:
         m = (y2 - y1) / (x2 - x1)
         c = y1 - m * x1
     else:
-        m = None  # Vertical line
+        m = None  # Vertikale Linie
 
-    # Find intersections with image borders
+    # Finde die Schnittpunkte mit den Bildrändern
     if m is not None:
-        # Line intersects with left and right borders (x = 0 and x = width)
+        # Schnittpunkte mit den linken und rechten Rändern (x = 0 und x = width)
         y_at_x0 = c
         y_at_xmax = m * width + c
 
-        # Line intersects with top and bottom borders (y = 0 and y = height)
+        # Schnittpunkte mit den oberen und unteren Rändern (y = 0 und y = height)
         x_at_y0 = -c / m
         x_at_ymax = (height - c) / m
 
-        # Extend line based on intersection points
+        # Erweitere die Linie basierend auf den Schnittpunkten
         points = [
-            (0, int(round(y_at_x0))),  # Intersect with left border
-            (width, int(round(y_at_xmax))),  # Intersect with right border
-            (int(round(x_at_y0)), 0),  # Intersect with top border
-            (int(round(x_at_ymax)), height)  # Intersect with bottom border
+            (0, int(round(y_at_x0))),  # Schnittpunkt mit dem linken Rand
+            (width, int(round(y_at_xmax))),  # Schnittpunkt mit dem rechten Rand
+            (int(round(x_at_y0)), 0),  # Schnittpunkt mit dem oberen Rand
+            (int(round(x_at_ymax)), height)  # Schnittpunkt mit dem unteren Rand
         ]
 
-        # Filter points to be within image dimensions
+        # Filtere Punkte, um nur die innerhalb der Bilddimensionen zu behalten
         valid_points = [(x, y) for x, y in points if 0 <= x <= width and 0 <= y <= height]
 
-        # Return the two points that are furthest apart (extended line)
+        # Gib die beiden Punkte zurück, die am weitesten voneinander entfernt sind (erweiterte Linie)
         if len(valid_points) == 2:
             return valid_points[0] + valid_points[1]
         else:
-            # Calculate distances between each pair and select the longest segment
+            # Berechne die Entfernungen zwischen jedem Paar und wähle das längste Segment aus
             max_distance = 0
             best_pair = (0, 0, 0, 0)
             for i in range(len(valid_points)):
@@ -51,32 +51,30 @@ def extend_line(x1, y1, x2, y2, img_shape):
             return best_pair
 
     else:
-        # Vertical line
+        # Vertikale Linie
         return (x1, 0, x2, height)
 
-# Calculate the angle of a line in degrees
+# Berechne den Winkel einer Linie in Grad
 def calculate_angle(line):
     x1, y1, x2, y2 = line
     return np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
 
-# Calculate the perpendicular distance from a point to a line
+# Berechne den senkrechten Abstand von einem Punkt zu einer Linie
 def point_to_line_distance(x0, y0, x1, y1, x2, y2):
     """
-    Calculate the perpendicular distance from a point (x0, y0) to a line defined by (x1, y1) -> (x2, y2).
+    Berechne den senkrechten Abstand von einem Punkt (x0, y0) zu einer Linie definiert durch (x1, y1) -> (x2, y2).
     """
-    # Using the line equation Ax + By + C = 0, find the perpendicular distance.
     A = y2 - y1
     B = x1 - x2
     C = x2 * y1 - x1 * y2
 
-    # Distance from point to line
     distance = abs(A * x0 + B * y0 + C) / np.sqrt(A**2 + B**2)
     return distance
 
-# Function to merge collinear vertical lines
+# Funktion zum Zusammenführen kollinearer vertikaler Linien
 def merge_collinear_lines(lines, angle_threshold=15, distance_threshold=10):
     """
-    Merge lines that are approximately vertical and collinear.
+    Füge Linien zusammen, die ungefähr vertikal und kollinear sind.
     """
     merged_lines = []
     used_lines = [False] * len(lines)
@@ -88,11 +86,11 @@ def merge_collinear_lines(lines, angle_threshold=15, distance_threshold=10):
         x1, y1, x2, y2 = line[0]
         current_angle = calculate_angle((x1, y1, x2, y2))
 
-        # Check if the line is approximately vertical
+        # Überprüfe, ob die Linie ungefähr vertikal ist
         if (90 - angle_threshold < abs(current_angle) < 90 + angle_threshold) or \
            (270 - angle_threshold < abs(current_angle) < 270 + angle_threshold):
 
-            # Initialize merged line as current line
+            # Initialisiere die zusammengeführte Linie als aktuelle Linie
             x1_min, x2_max = min(x1, x2), max(x1, x2)
             y1_min, y2_max = min(y1, y2), max(y1, y2)
 
@@ -103,20 +101,20 @@ def merge_collinear_lines(lines, angle_threshold=15, distance_threshold=10):
                 ox1, oy1, ox2, oy2 = other_line[0]
                 other_angle = calculate_angle((ox1, oy1, ox2, oy2))
 
-                # Check if other line is approximately vertical and collinear
+                # Überprüfe, ob die andere Linie ungefähr vertikal und kollinear ist
                 if abs(current_angle - other_angle) < angle_threshold:
-                    # Check proximity of line endpoints
+                    # Überprüfe die Nähe der Linienendpunkte
                     if (point_to_line_distance(ox1, oy1, x1, y1, x2, y2) < distance_threshold and
                         point_to_line_distance(ox2, oy2, x1, y1, x2, y2) < distance_threshold):
 
-                        # Update merged line endpoints
+                        # Aktualisiere die Endpunkte der zusammengeführten Linie
                         x1_min = min(x1_min, ox1, ox2)
                         x2_max = max(x2_max, ox1, ox2)
                         y1_min = min(y1_min, oy1, oy2)
                         y2_max = max(y2_max, oy1, oy2)
                         used_lines[j] = True
 
-            # Add the merged line
+            # Füge die zusammengeführte Linie hinzu
             merged_lines.append([(x1_min, y1_min, x2_max, y2_max)])
             used_lines[i] = True
 
@@ -124,80 +122,86 @@ def merge_collinear_lines(lines, angle_threshold=15, distance_threshold=10):
 
 def detect_lines_in_region(image, x_min, x_max, vertical_threshold):
     """
-    Detect and merge vertical lines within a specified x-coordinate range in the image.
+    Erkenne und vereine vertikale Linien in einem angegebenen x-Koordinatenbereich im Bild.
     """
-    # Crop the image to the specified region
+    # Schneide das Bild auf den angegebenen Bereich zu
     cropped_region = image[:, x_min:x_max]
 
-    # Initialize LSD (Line Segment Detector)
+    # Initialisiere LSD (Line Segment Detector)
     lsd = cv.createLineSegmentDetector(0)
 
-    # Detect lines in the cropped region
-    lines = lsd.detect(cropped_region)[0]  # Get the detected lines from the first position of the tuple
+    # Erkenne Linien im zugeschnittenen Bereich
+    lines = lsd.detect(cropped_region)[0]  # Die erkannten Linien aus der ersten Position des Tupels holen
 
-    # Adjust line coordinates back to original image coordinates
+    # Korrigiere die Linienkoordinaten zurück zu den ursprünglichen Bildkoordinaten
     if lines is not None:
         lines = [np.array([line[0] + [x_min, 0, x_min, 0]]) for line in lines]
 
-    # Filter and merge vertical lines
+    # Filtere und vereine vertikale Linien
     vertical_lines = [line for line in lines if 
                       (90 - vertical_threshold < abs(calculate_angle(line[0])) < 90 + vertical_threshold) or
                       (270 - vertical_threshold < abs(calculate_angle(line[0])) < 270 + vertical_threshold)]
 
-    # Merge collinear lines
+    # Füge kollineare Linien zusammen
     merged_lines = merge_collinear_lines(vertical_lines, angle_threshold=vertical_threshold, distance_threshold=10)
 
     return merged_lines
 
-# Read image
-img = cv.imread('testimages/img5023.png')
-pts = np.array([[0, 200], [700, 180], [1080, 136], [1080, 840], [0, 780]])
+# Lese das Bild ein
+img = cv.imread('testimages/img5455.png')
+pts = np.array([[0, 200], [700, 180], [1150, 136], [1150, 840], [0, 780]])
 
-# Convert to grayscale
+# In Graustufen konvertieren
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-# Blur 
+# Weichzeichnen
 blur = cv.GaussianBlur(gray, (3, 3), cv.BORDER_DEFAULT)
 
-## (1) Crop the bounding rect
+## (1) Zuschneiden des Begrenzungsrechtecks
 rect = cv.boundingRect(pts)
 x, y, w, h = rect
 croped = blur[y:y+h, x:x+w].copy()
 
-## (2) make mask
+## (2) Erstelle Maske
 pts = pts - pts.min(axis=0)
 
 mask = np.zeros(croped.shape[:2], np.uint8)
 cv.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv.LINE_AA)
 
-## (3) do bit-op
+## (3) Bitwise-Operation
 dst = cv.bitwise_and(croped, croped, mask=mask)
 
-## (4) add the white background
+## (4) Füge den weißen Hintergrund hinzu
 bg = np.ones_like(croped, np.uint8) * 255
 cv.bitwise_not(bg, bg, mask=mask)
 dst2 = bg + dst
 
-# Create a copy of the image to draw on
+# Erstelle eine Kopie des Bildes zum Zeichnen
 drawn_img = cv.cvtColor(dst2, cv.COLOR_GRAY2BGR)
 
-# Define the angle range to include only vertical lines (e.g., within ±15 degrees of 90 or 270)
+# Definiere den Bereich für vertikale Linien (z.B. ±15 Grad um 90 oder 270)
 vertical_threshold = 15
 
-# Check if lines are detected in the initial region (0 to 1200 x-coordinates)
+# Überprüfe, ob Linien im ursprünglichen Bereich (0 bis 1200 x-Koordinaten) erkannt wurden
 x_min, x_max = 0, 1200
 merged_lines = detect_lines_in_region(dst2, x_min, x_max, vertical_threshold)
 
-# If no lines found in the initial region, check the entire image
+# Wenn keine Linien im ursprünglichen Bereich gefunden wurden, überprüfe das gesamte Bild
 if not merged_lines:
     merged_lines = detect_lines_in_region(dst2, 0, dst2.shape[1], vertical_threshold)
 
-# Draw merged lines
-for line in merged_lines:
-    x1, y1, x2, y2 = line[0]
+# Berechne die Längen der Linien
+line_lengths = [(np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2), (x1, y1, x2, y2)) for (x1, y1, x2, y2) in [line[0] for line in merged_lines]]
+
+# Sortiere die Linien nach Länge und wähle die zwei längsten aus
+sorted_lines = sorted(line_lengths, key=lambda item: item[0], reverse=True)
+longest_lines = sorted_lines[:2]
+
+# Zeichne nur die zwei längsten Linien
+for _, (x1, y1, x2, y2) in longest_lines:
     cv.line(drawn_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
-# Display the result
-cv.imshow("Merged Vertical Lines", drawn_img)
+# Zeige das Ergebnis an
+cv.imshow("Longest Vertical Lines", drawn_img)
 cv.waitKey(0)
 cv.destroyAllWindows()
