@@ -1,71 +1,39 @@
 import cv2
-import sys
 import numpy as np
 
-def nothing(x):
-    pass
-
 # Load in image
-image = cv2.imread('testimages/img5317.png')
+image = cv2.imread('testimages/img672.png')
 
-# Create a window
-cv2.namedWindow('image')
+# Set fixed HSV values
+hMin = 0
+sMin = 0
+vMin = 255
+hMax = 179
+sMax = 255
+vMax = 255
 
-# create trackbars for color change
-cv2.createTrackbar('HMin','image',0,179,nothing) # Hue is from 0-179 for Opencv
-cv2.createTrackbar('SMin','image',0,255,nothing)
-cv2.createTrackbar('VMin','image',0,255,nothing)
-cv2.createTrackbar('HMax','image',0,179,nothing)
-cv2.createTrackbar('SMax','image',0,255,nothing)
-cv2.createTrackbar('VMax','image',0,255,nothing)
+# Set minimum and max HSV values to display
+lower = np.array([hMin, sMin, vMin])
+upper = np.array([hMax, sMax, vMax])
 
-# Set default value for MAX HSV trackbars.
-cv2.setTrackbarPos('HMax', 'image', 179)
-cv2.setTrackbarPos('SMax', 'image', 255)
-cv2.setTrackbarPos('VMax', 'image', 255)
+# Create HSV Image and threshold into a range
+hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+mask = cv2.inRange(hsv, lower, upper)
+output = cv2.bitwise_and(image, image, mask=mask)
 
-# Initialize to check if HSV min/max value changes
-hMin = sMin = vMin = hMax = sMax = vMax = 0
-phMin = psMin = pvMin = phMax = psMax = pvMax = 0
+# Apply Canny Edge Detection
+edges = cv2.Canny(output, 100, 200)
 
-output = image
-wait_time = 33
+# Convert edges to 3 channels to overlay on the original image
+edges_colored = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
 
-while(1):
+# Overlay edges on the original image
+overlay = cv2.addWeighted(image, 0.8, edges_colored, 0.2, 0)
 
-    # get current positions of all trackbars
-    hMin = cv2.getTrackbarPos('HMin','image')
-    sMin = cv2.getTrackbarPos('SMin','image')
-    vMin = cv2.getTrackbarPos('VMin','image')
+# Display the overlay image
+cv2.imshow('Output', output)
+cv2.imshow('Edges Overlay', overlay)
 
-    hMax = cv2.getTrackbarPos('HMax','image')
-    sMax = cv2.getTrackbarPos('SMax','image')
-    vMax = cv2.getTrackbarPos('VMax','image')
-
-    # Set minimum and max HSV values to display
-    lower = np.array([hMin, sMin, vMin])
-    upper = np.array([hMax, sMax, vMax])
-
-    # Create HSV Image and threshold into a range.
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower, upper)
-    output = cv2.bitwise_and(image,image, mask= mask)
-
-    # Print if there is a change in HSV value
-    if( (phMin != hMin) | (psMin != sMin) | (pvMin != vMin) | (phMax != hMax) | (psMax != sMax) | (pvMax != vMax) ):
-        print("(hMin = %d , sMin = %d, vMin = %d), (hMax = %d , sMax = %d, vMax = %d)" % (hMin , sMin , vMin, hMax, sMax , vMax))
-        phMin = hMin
-        psMin = sMin
-        pvMin = vMin
-        phMax = hMax
-        psMax = sMax
-        pvMax = vMax
-
-    # Display output image
-    cv2.imshow('image',output)
-
-    # Wait longer to prevent freeze for videos.
-    if cv2.waitKey(wait_time) & 0xFF == ord('q'):
-        break
-
+# Wait indefinitely until a key is pressed
+cv2.waitKey(0)
 cv2.destroyAllWindows()
