@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # Load in image
-img = cv2.imread('testimages/img7926.png')
+img = cv2.imread('testimages/img7664.png')
 
 pts = np.array([[0, 630], [1280, 630], [1280, 770], [0, 770]])
 
@@ -27,6 +27,15 @@ upper = np.array([hMax, sMax, vMax])
 hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 mask = cv2.inRange(hsv, lower, upper)
 output = cv2.bitwise_and(image, image, mask=mask)
+
+pts = np.array([[0, 630], [1280, 630], [1280, 770], [0, 770]])
+
+## (1) Crop the bounding rect
+rect = cv2.boundingRect(pts)
+x, y, w, h = rect
+image = img[y:y+h, x:x+w].copy()
+
+
 
 # Apply Canny Edge Detection
 edges = cv2.Canny(output, 100, 200)
