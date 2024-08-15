@@ -10,7 +10,7 @@ if not cap.isOpened():
     exit()
 
 # Setze den Fokuswert manuell (z.B. 100, kann je nach Kamera variieren)
-focus_value = 0
+focus_value = 100
 cap.set(cv2.CAP_PROP_FOCUS, focus_value)
 
 # Mache ein Bild
