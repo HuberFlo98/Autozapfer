@@ -34,7 +34,7 @@ pts = np.array([[0, 630], [1280, 630], [1280, 770], [0, 770]])
 rect = cv2.boundingRect(pts)
 x, y, w, h = rect
 image = img[y:y+h, x:x+w].copy()
-
+#1
 
 
 # Apply Canny Edge Detection
