@@ -1,44 +1,31 @@
-import os
 import cv2
 
-def set_camera_focus(focus_value: int):
-    # Überprüfen, ob das Fokus-Feature unterstützt wird
-    # Fokus auf absolute Werte setzen (0 = Minimum, 255 = Maximum)
-    os.system(f'v4l2-ctl -d /dev/video0 -c focus_absolute={focus_value}')
-    print(f"Fokus wurde auf {focus_value} gesetzt.")
+# Öffne die Webcam
+cap = cv2.VideoCapture(0)
+ #1
 
-def capture_image():
-    # OpenCV verwenden, um ein Bild von der Kamera aufzunehmen
-    cap = cv2.VideoCapture(0)
-    
-    if not cap.isOpened():
-        print("Kamera konnte nicht geöffnet werden.")
-        return None
-    
-    ret, frame = cap.read()
+# Überprüfe, ob die Webcam geöffnet wurde
+if not cap.isOpened():
+    print("Fehler: Webcam konnte nicht geöffnet werden")
+    exit()
+
+# Setze den Fokuswert manuell (z.B. 100, kann je nach Kamera variieren)
+focus_value = 0
+cap.set(cv2.CAP_PROP_FOCUS, focus_value)
+
+# Mache ein Bild
+ret, frame = cap.read()
+if not ret:
+    print("Fehler: Bild konnte nicht aufgenommen werden")
     cap.release()
+    exit()
 
-    if ret:
-        cv2.imshow("Captured Image", frame)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        return frame
-    else:
-        print("Fehler beim Aufnehmen des Bildes.")
-        return None
+# Zeige das aufgenommene Bild an
+cv2.imshow('Aufgenommenes Bild', frame)
 
-def main():
-    focus_values = [0, 50, 100, 150, 200, 255]  # Beispielwerte für den Fokus
-    
-    for focus in focus_values:
-        set_camera_focus(focus)
-        image = capture_image()
-        if image is not None:
-            print(f"Bild mit Fokus {focus} aufgenommen.")
-        else:
-            print(f"Fehler beim Aufnehmen des Bildes mit Fokus {focus}.")
+# Warte, bis eine Taste gedrückt wird, um das Fenster zu schließen
+cv2.waitKey(0)
 
-if __name__ == "__main__":
-    main()
-
-    
+# Freigeben der Kamera und Schließen aller Fenster
+cap.release()
+cv2.destroyAllWindows()

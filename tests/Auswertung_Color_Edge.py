@@ -2,22 +2,21 @@ import cv2
 import numpy as np
 
 # Load in image
-image = cv2.imread('testimages/img9404.png')
+img = cv2.imread('testimages/img7664.png')
 
-pts = np.array([[0,200],[700,180],[1080,136],[1080,840],[0,780]])
+pts = np.array([[0, 630], [1280, 630], [1280, 770], [0, 770]])
 
 ## (1) Crop the bounding rect
 rect = cv2.boundingRect(pts)
-x,y,w,h = rect
-croped = image[y:y+h, x:x+w].copy()
-
+x, y, w, h = rect
+image = img[y:y+h, x:x+w].copy()
 
 # Set fixed HSV values
 hMin = 0
-sMin = 0
-vMin = 180
+sMin = 40
+vMin = 153
 hMax = 179
-sMax = 255
+sMax = 114
 vMax = 255
 
 # Set minimum and max HSV values to display
@@ -29,24 +28,41 @@ hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 mask = cv2.inRange(hsv, lower, upper)
 output = cv2.bitwise_and(image, image, mask=mask)
 
+pts = np.array([[0, 630], [1280, 630], [1280, 770], [0, 770]])
+
+## (1) Crop the bounding rect
+rect = cv2.boundingRect(pts)
+x, y, w, h = rect
+image = img[y:y+h, x:x+w].copy()
+#1
+
+
 # Apply Canny Edge Detection
 edges = cv2.Canny(output, 100, 200)
 
 # Dilate the edges to make them thicker
-kernel = np.ones((5,5), np.uint8)  # 5x5 kernel for dilation
+kernel = np.ones((5,5), np.uint8)
 edges_dilated = cv2.dilate(edges, kernel, iterations=1)
 
-# Create an empty image with the same dimensions as the original
+# Find contours based on the edges
+contours, _ = cv2.findContours(edges_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# Sort contours by length and keep only the two longest
+contours = sorted(contours, key=cv2.contourArea, reverse=True)[:2]
+
+# Create an empty image to draw the two longest contours
 edges_colored = np.zeros_like(image)
 
-# Set the dilated edges to red (BGR format: Blue = 0, Green = 0, Red = 255)
-edges_colored[edges_dilated != 0] = [255, 255, 0]
+# Draw the two longest contours in red
+cv2.drawContours(edges_colored, contours, -1, (255, 255, 0), 2)
 
-# Overlay red edges on the original image
+# Overlay the edges on the original cropped image
 overlay = cv2.addWeighted(image, 0.8, edges_colored, 0.2, 0)
 
-# Display the overlay image
-cv2.imshow('Thicker Red Edges Overlay', overlay)
+# Display the overlay image and the original image
+cv2.imshow('Two Longest Edges Overlay', overlay)
+cv2.imshow('Original', img)
+cv2.imwrite('Edge.jpg', overlay)
 
 # Wait indefinitely until a key is pressed
 cv2.waitKey(0)
