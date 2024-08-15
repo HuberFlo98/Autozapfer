@@ -2,6 +2,7 @@ import cv2
 
 # Öffne die Webcam
 cap = cv2.VideoCapture(0)
+ #1
 
 # Überprüfe, ob die Webcam geöffnet wurde
 if not cap.isOpened():
