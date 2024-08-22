@@ -18,6 +18,12 @@ min_length = 50
 lower_bound_pct = 0.3  # 30% von der Bildbreite
 upper_bound_pct = 0.7  # 70% von der Bildbreite
 
+# Rechteck-Koordinaten (x, y, Breite, Höhe)
+rect_x = 100
+rect_y = 50
+rect_width = 600
+rect_height = 100
+
 # Webcam initialisieren (0 für die Standard-Webcam)
 cap = cv2.VideoCapture(0)
 
@@ -36,6 +42,8 @@ def show_preview():
             print("Kein Bild von der Webcam erhalten.")
             break
 
+        # Zuschneiden des Bildes
+        img = img[rect_y:rect_y + rect_height, rect_x:rect_x + rect_width]
         height, width = img.shape[:2]
         lower_bound = int(lower_bound_pct * width)
         upper_bound = int(upper_bound_pct * width)
@@ -93,6 +101,8 @@ def handle_action_1():
         print("Kein Bild von der Webcam erhalten.")
         return
     
+    # Zuschneiden des Bildes
+    img = img[rect_y:rect_y + rect_height, rect_x:rect_x + rect_width]
     height, width = img.shape[:2]
     lower_bound = int(lower_bound_pct * width)
     upper_bound = int(upper_bound_pct * width)
@@ -146,6 +156,8 @@ def wait_for_action_1():
         print("Kein Bild von der Webcam erhalten.")
         return
     
+    # Zuschneiden des Bildes
+    img = img[rect_y:rect_y + rect_height, rect_x:rect_x + rect_width]
     height, width = img.shape[:2]
     lower_bound = int(lower_bound_pct * width)
     upper_bound = int(upper_bound_pct * width)
@@ -198,6 +210,8 @@ def wait_for_action_2():
         print("Kein Bild von der Webcam erhalten.")
         return
     
+    # Zuschneiden des Bildes
+    img = img[rect_y:rect_y + rect_height, rect_x:rect_x + rect_width]
     height, width = img.shape[:2]
     lower_bound = int(lower_bound_pct * width)
     upper_bound = int(upper_bound_pct * width)
@@ -219,10 +233,10 @@ def wait_for_action_2():
             vertical_contours.append((contour, h))
 
     vertical_contours = sorted(vertical_contours, key=lambda x: x[1], reverse=True)
-    two_longest_contours = [cnt[0] for cnt in vertical_contours[:1]]
+    longest_contours = [cnt[0] for cnt in vertical_contours[:1]]
 
     x_coords = []
-    for contour in two_longest_contours:
+    for contour in longest_contours:
         for point in contour:
             x_coords.append(point[0][0])
 
@@ -250,7 +264,7 @@ while True:
     elif action_status == "action_3":
         perform_action_3()
 
-    # Beenden, wenn die 'q'-Taste gedrückt wird oder die 's'-Taste als Not-Stop-Knopf
+    # Beenden, wenn die 'q'-Taste gedrückt wird
     if keyboard.is_pressed('q'):
         close_valve()  # Ventil schließen, wenn 'q' gedrückt wird
         break
