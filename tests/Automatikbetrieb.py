@@ -60,34 +60,33 @@ show_preview()
 
 # Status der Aktionen
 action_status = "idle"
-program_running = True  # Flag, um den Not-Stop zu überwachen
 
 def close_valve():
     """Ventil schließen."""
     print("Ventil schließen")
 
 def perform_action_1():
-    global action_status, program_running
+    global action_status
     print("Aktion 1: Motor ausfahren")
-    timed_sleep(10)  # Motor ausfahren simuliert durch eine Zeitverzögerung
-    if program_running:
-        print("Ventil aufmachen")
-        action_status = "waiting_for_action_1"
+    time.sleep(10)  # Motor ausfahren simuliert durch eine Zeitverzögerung
+    print("Ventil aufmachen")
+    action_status = "waiting_for_action_1"
 
 def perform_action_2():
-    global action_status, program_running
+    global action_status
     print("Aktion 2: Ventil aufmachen")
-    if program_running:
-        action_status = "waiting_for_action_2"
+    action_status = "waiting_for_action_2"
 
 def perform_action_3():
-    global program_running
+    global action_status
     close_valve()  # Ventil schließen bevor das Programm beendet wird
     print("Aktion 3: Programm beenden")
-    program_running = False
+    cap.release()
+    cv2.destroyAllWindows()
+    exit()
 
 def handle_action_1():
-    global action_status, program_running
+    global action_status
     ret, img = cap.read()
     if not ret:
         print("Kein Bild von der Webcam erhalten.")
@@ -140,7 +139,7 @@ def handle_action_1():
         perform_action_3()
 
 def wait_for_action_1():
-    global action_status, program_running
+    global action_status
     ret, img = cap.read()
     if not ret:
         print("Kein Bild von der Webcam erhalten.")
@@ -186,14 +185,13 @@ def wait_for_action_1():
             print("Kante zwischen Grenzwerten 1 und 2")
             close_valve()  # Ventil schließen bevor der Motor eingefahren wird
             print("Motor einfahren")
-            timed_sleep(10)  # Motor einfahren simuliert durch eine Zeitverzögerung
-            if program_running:
-                action_status = "action_2"
+            time.sleep(10)
+            action_status = "action_2"
         else:
             print("Kante noch nicht im gewünschten Bereich")
 
 def wait_for_action_2():
-    global action_status, program_running
+    global action_status
     ret, img = cap.read()
     if not ret:
         print("Kein Bild von der Webcam erhalten.")
@@ -232,24 +230,14 @@ def wait_for_action_2():
         mean_x = int(np.mean(x_coords))
 
     if mean_x is not None:
-        upper_bound = int(upper_bound_pct * width)
-        
         if mean_x > upper_bound:
-            close_valve()  # Ventil schließen bevor das Programm beendet wird
             print("Kante über Grenzwert 2")
+            close_valve()  # Ventil schließen bevor das Programm beendet wird
             action_status = "action_3"
         else:
             print("Kante noch nicht über Grenzwert 2")
 
-def timed_sleep(duration):
-    """Simuliert eine Zeitverzögerung, die währenddessen ständig auf Not-Stop überprüft."""
-    start_time = time.time()
-    while time.time() - start_time < duration:
-        if not program_running:
-            break
-        time.sleep(0.1)
-
-while program_running:
+while True:
     if action_status == "idle":
         handle_action_1()
     elif action_status == "waiting_for_action_1":
@@ -261,12 +249,13 @@ while program_running:
     elif action_status == "action_3":
         perform_action_3()
 
-    # Beenden, wenn die 'q'-Taste oder die ESC-Taste (Not-Stop) gedrückt wird
+    # Beenden, wenn die 'q'-Taste gedrückt wird oder die 's'-Taste als Not-Stop-Knopf
     key = cv2.waitKey(1) & 0xFF
-    if key == ord('q') or key == 27:  # ESC-Taste
-        close_valve()
-        print("Not-Stop aktiviert. Programm beendet.")
-        program_running = False
+    if key == ord('q'):
+        close_valve()  # Ventil schließen, wenn 'q' gedrückt wird
+        break
+    elif key == ord('s'):
+        close_valve()  # Not-Stop: Ventil schließen
         break
 
 # Webcam freigeben und Fenster schließen
