@@ -1,274 +1,140 @@
-import cv2
-import numpy as np
-import time
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat May 27 03:26:02 2023
 
-# Feste HSV-Werte einstellen
-hMin = 0
-sMin = 0
-vMin = 0
-hMax = 179
-sMax = 255
-vMax = 255
+@author: daniel
+"""
+import sqlite3
+import os
 
-# Mindestlänge für vertikale Kanten
-min_length = 50
-
-# Prozentsatz für die Grenzwerte relativ zur Bildbreite
-lower_bound_pct = 0.3  # 30% von der Bildbreite
-upper_bound_pct = 0.7  # 70% von der Bildbreite
-
-# Webcam initialisieren (0 für die Standard-Webcam)
-cap = cv2.VideoCapture(0)
-
-if not cap.isOpened():
-    print("Webcam konnte nicht geöffnet werden.")
-    exit()
-
-def show_preview():
-    """
-    Zeigt ein Vorschaufenster an, das das Webcam-Bild mit den oberen und unteren Grenzwerten darstellt.
-    Das Fenster schließt sich, wenn eine Taste gedrückt wird.
-    """
-    while True:
-        ret, img = cap.read()
-        if not ret:
-            print("Kein Bild von der Webcam erhalten.")
-            break
-
-        height, width = img.shape[:2]
-        lower_bound = int(lower_bound_pct * width)
-        upper_bound = int(upper_bound_pct * width)
-
-        # Zeichnen der Grenzwerte als vertikale Linien
-        cv2.line(img, (lower_bound, 0), (lower_bound, height), (0, 255, 255), 2)
-        cv2.line(img, (upper_bound, 0), (upper_bound, height), (0, 255, 255), 2)
-
-        # Anzeigetext hinzufügen
-        cv2.putText(img, "Preview: Press any key to start", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-
-        # Vorschau anzeigen
-        cv2.imshow('Preview', img)
-
-        # Wenn eine Taste gedrückt wird, das Fenster schließen
-        if cv2.waitKey(1) != -1:
-            break
-
-    cv2.destroyWindow('Preview')
-
-# Vorschau anzeigen
-show_preview()
-
-# Status der Aktionen
-action_status = "idle"
-program_running = True  # Flag, um den Not-Stop zu überwachen
-
-def close_valve():
-    """Ventil schließen."""
-    print("Ventil schließen")
-
-def perform_action_1():
-    global action_status, program_running
-    print("Aktion 1: Motor ausfahren")
-    timed_sleep(10)  # Motor ausfahren simuliert durch eine Zeitverzögerung
-    if program_running:
-        print("Ventil aufmachen")
-        action_status = "waiting_for_action_1"
-
-def perform_action_2():
-    global action_status, program_running
-    print("Aktion 2: Ventil aufmachen")
-    if program_running:
-        action_status = "waiting_for_action_2"
-
-def perform_action_3():
-    global program_running
-    close_valve()  # Ventil schließen bevor das Programm beendet wird
-    print("Aktion 3: Programm beenden")
-    program_running = False
-
-def handle_action_1():
-    global action_status, program_running
-    ret, img = cap.read()
-    if not ret:
-        print("Kein Bild von der Webcam erhalten.")
-        return
+def create_table():
+    conn = sqlite3.connect('user.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  username TEXT NOT NULL,
+                  password TEXT NOT NULL,
+                  weight TEXT NOT NULL,
+                  score INTEGER,
+                  promille REAL,
+                  card_id TEXT NOT NULL,
+                  picture TEXT NOT NULL)''')
+    conn.commit()
+    conn.close()
     
-    height, width = img.shape[:2]
-    lower_bound = int(lower_bound_pct * width)
-    upper_bound = int(upper_bound_pct * width)
+def register_user(username_entry, password_entry, weight_entry, label_feedback,fr):
+    username = username_entry.get()
+    password = password_entry.get()
+    weight = weight_entry.get()
 
-    lower = np.array([hMin, sMin, vMin])
-    upper = np.array([hMax, sMax, vMax])
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower, upper)
-    output = cv2.bitwise_and(img, img, mask=mask)
-    edges = cv2.Canny(output, 100, 200)
-    kernel = np.ones((5, 5), np.uint8)
-    edges_dilated = cv2.dilate(edges, kernel, iterations=1)
-    contours, _ = cv2.findContours(edges_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    vertical_contours = []
-    for contour in contours:
-        _, _, w, h = cv2.boundingRect(contour)
-        if h > w and h >= min_length:
-            vertical_contours.append((contour, h))
-
-    vertical_contours = sorted(vertical_contours, key=lambda x: x[1], reverse=True)
-    two_longest_contours = [cnt[0] for cnt in vertical_contours[:1]]
-
-    x_coords = []
-    for contour in two_longest_contours:
-        for point in contour:
-            x_coords.append(point[0][0])
-
-    mean_x = None
-    if x_coords:
-        mean_x = int(np.mean(x_coords))
-    
-    # In Aktion 1 übergehen, wenn keine Kante erkannt wurde
-    if mean_x is None:
-        print("Keine Kante erkannt")
-        perform_action_1()
-    elif mean_x < lower_bound:
-        print("Kante unter Grenzwert 1")
-        perform_action_1()
-    elif lower_bound <= mean_x <= upper_bound:
-        print("Kante zwischen Grenzwerten 1 und 2")
-        perform_action_2()
-    elif mean_x > upper_bound:
-        print("Kante über Grenzwert 2")
-        perform_action_3()
-
-def wait_for_action_1():
-    global action_status, program_running
-    ret, img = cap.read()
-    if not ret:
-        print("Kein Bild von der Webcam erhalten.")
-        return
-    
-    height, width = img.shape[:2]
-    lower_bound = int(lower_bound_pct * width)
-    upper_bound = int(upper_bound_pct * width)
-
-    lower = np.array([hMin, sMin, vMin])
-    upper = np.array([hMax, sMax, vMax])
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower, upper)
-    output = cv2.bitwise_and(img, img, mask=mask)
-    edges = cv2.Canny(output, 100, 200)
-    kernel = np.ones((5, 5), np.uint8)
-    edges_dilated = cv2.dilate(edges, kernel, iterations=1)
-    contours, _ = cv2.findContours(edges_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    vertical_contours = []
-    for contour in contours:
-        _, _, w, h = cv2.boundingRect(contour)
-        if h > w and h >= min_length:
-            vertical_contours.append((contour, h))
-
-    vertical_contours = sorted(vertical_contours, key=lambda x: x[1], reverse=True)
-    two_longest_contours = [cnt[0] for cnt in vertical_contours[:1]]
-
-    x_coords = []
-    for contour in two_longest_contours:
-        for point in contour:
-            x_coords.append(point[0][0])
-
-    mean_x = None
-    if x_coords:
-        mean_x = int(np.mean(x_coords))
-
-    if mean_x is not None:
-        lower_bound = int(lower_bound_pct * width)
-        upper_bound = int(upper_bound_pct * width)
-        
-        if lower_bound <= mean_x <= upper_bound:
-            print("Kante zwischen Grenzwerten 1 und 2")
-            close_valve()  # Ventil schließen bevor der Motor eingefahren wird
-            print("Motor einfahren")
-            timed_sleep(10)  # Motor einfahren simuliert durch eine Zeitverzögerung
-            if program_running:
-                action_status = "action_2"
+    # Überprüfen, ob der Benutzer bereits existiert
+    conn = sqlite3.connect('user.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=?", (username,))
+    if c.fetchone():
+        label_feedback.place(x=50, y=290, height=30)
+        label_feedback.config(text="User already exists")
+    else:
+        # Benutzer in die Datenbank einfügen
+        if username == "" or password == "" or (not weight.isnumeric()):
+            label_feedback.place(x=50, y=290, height=30)
+            label_feedback.config(text="Check entries")
         else:
-            print("Kante noch nicht im gewünschten Bereich")
+            c.execute("INSERT INTO users (username, password, weight, score, promille, card_id, picture) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password, weight, 0, 0.0, "", ""))
+            label_feedback.place(x=50, y=290, height=30)
+            label_feedback.config(text="Registrations succesful")
+            fr.add_faces(username + '.jpg')
+    conn.commit()
+    conn.close()
 
-def wait_for_action_2():
-    global action_status, program_running
-    ret, img = cap.read()
-    if not ret:
-        print("Kein Bild von der Webcam erhalten.")
-        return
+def login_user(username_entry, password_entry, label_feedback, label_user, label_score, button_zapfen):
+    username = username_entry.get()
+    password = password_entry.get()
+
+    # Überprüfen, ob der Benutzer in der Datenbank existiert und das Passwort übereinstimmt
+    conn = sqlite3.connect('user.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+    w = conn.cursor()
+    w.execute("SELECT score FROM users WHERE username=? AND password=?", (username, password))
+    if c.fetchone():
+        score = int(w.fetchone()[0])
+        label_user.config(text="User: " + username)
+        label_score.config(text="Score: " + str(score))
+        label_feedback.place(x=50, y=240, height=30)
+        label_feedback.config(text="Login succesful")
+        button_zapfen.config(state="normal")
+    else:
+        label_feedback.place(x=50, y=240, height=30)
+        label_feedback.config(text="Invalid username or password")
+    conn.close()
+def login_faceid(username, username_entry, password_entry):
+    conn = sqlite3.connect('user.db')
+    c=conn.cursor()
+    c.execute("SELECT password FROM users WHERE username=?", (username))
+    password = c.fetchone()
+    if password is not None:
+        username_entry.config(text=username)
+        password_entry.config(text=password)
+    conn.commit()
+    conn.close()
     
-    height, width = img.shape[:2]
-    lower_bound = int(lower_bound_pct * width)
-    upper_bound = int(upper_bound_pct * width)
+def login_guest(label_feedback, label_user, label_score, button_zapfen):
+    label_user.config(text="User: Gast")
+    label_score.config(text="Score: 0")
+    label_feedback.place(x=50, y=240, height=30)
+    label_feedback.config(text="Login succesful")
+    button_zapfen.config(state="normal")
+def delete_user(username_entry, password_entry, label_feedback,fr):
+    username = username_entry.get()
+    password = password_entry.get()
 
-    lower = np.array([hMin, sMin, vMin])
-    upper = np.array([hMax, sMax, vMax])
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower, upper)
-    output = cv2.bitwise_and(img, img, mask=mask)
-    edges = cv2.Canny(output, 100, 200)
-    kernel = np.ones((5, 5), np.uint8)
-    edges_dilated = cv2.dilate(edges, kernel, iterations=1)
-    contours, _ = cv2.findContours(edges_dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Überprüfen, ob der Benutzer in der Datenbank existiert und das Passwort übereinstimmt
+    conn = sqlite3.connect('user.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+    if c.fetchone():
+        c.execute("DELETE FROM users WHERE username=?", (username,))
+        conn.commit()
+        conn.close()
+        label_feedback.place(x=50, y=240, height=30)
+        label_feedback.config(text="User deleted")
+        try:
+            picture_path = '/home/autozapfer/Dokumente/Software/GUI/BV/known_faces/' + username + '.jpg'
+            fr.remove_faces(username + '.jpg')
+            os.remove(picture_path)           
+        except OSError as e:
+            print("Error while deleting file:", e)
+    else:
+        conn.close()
+        label_feedback.place(x=50, y=240, height=30)
+        label_feedback.config(text="Invalid username or password")
+def inc_promille(label_user, label_score):
+    try:
+        print("Inc Promille")
+        username = label_user.cget("text").replace("User: ", "")
+        conn = sqlite3.connect('user.db')
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE username=?", (username,))
+        w = conn.cursor()
+        w.execute("SELECT weight FROM users WHERE username=?", (username,))
+        s = conn.cursor()
+        s.execute("SELECT score FROM users WHERE username=?", (username,))
+        p = conn.cursor()
+        p.execute("SELECT promille FROM users WHERE username=?", (username,))                
 
-    vertical_contours = []
-    for contour in contours:
-        _, _, w, h = cv2.boundingRect(contour)
-        if h > w and h >= min_length:
-            vertical_contours.append((contour, h))
-
-    vertical_contours = sorted(vertical_contours, key=lambda x: x[1], reverse=True)
-    two_longest_contours = [cnt[0] for cnt in vertical_contours[:1]]
-
-    x_coords = []
-    for contour in two_longest_contours:
-        for point in contour:
-            x_coords.append(point[0][0])
-
-    mean_x = None
-    if x_coords:
-        mean_x = int(np.mean(x_coords))
-
-    if mean_x is not None:
-        upper_bound = int(upper_bound_pct * width)
-        
-        if mean_x > upper_bound:
-            close_valve()  # Ventil schließen bevor das Programm beendet wird
-            print("Kante über Grenzwert 2")
-            action_status = "action_3"
-        else:
-            print("Kante noch nicht über Grenzwert 2")
-
-def timed_sleep(duration):
-    """Simuliert eine Zeitverzögerung, die währenddessen ständig auf Not-Stop überprüft."""
-    start_time = time.time()
-    while time.time() - start_time < duration:
-        if not program_running:
-            break
-        time.sleep(0.1)
-
-while program_running:
-    if action_status == "idle":
-        handle_action_1()
-    elif action_status == "waiting_for_action_1":
-        wait_for_action_1()
-    elif action_status == "action_2":
-        perform_action_2()
-    elif action_status == "waiting_for_action_2":
-        wait_for_action_2()
-    elif action_status == "action_3":
-        perform_action_3()
-
-    # Beenden, wenn die 'q'-Taste oder die ESC-Taste (Not-Stop) gedrückt wird
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q') or key == 27:  # ESC-Taste
-        close_valve()
-        print("Not-Stop aktiviert. Programm beendet.")
-        program_running = False
-        break
-
-# Webcam freigeben und Fenster schließen
-cap.release()
-cv2.destroyAllWindows()
+        if c.fetchone():
+            weight = int(w.fetchone()[0])
+            score_old = int(s.fetchone()[0])
+            promille_old = float(p.fetchone()[0])
+            promille_val = 20/(weight * 0.7) #Alkohol in g / (Körpgergewicht * Wasseranteil)
+            promille_new = float(promille_old) + promille_val
+            score_new = score_old + 1
+            label_score.config(text="Score: " + str(score_new))
+            c.execute("update users set promille = ? where username = ?", (promille_new, username))
+            c.execute("update users set score = ? where username = ?", (score_new, username))
+            conn.commit()
+    finally:
+        if conn:
+            conn.close()
