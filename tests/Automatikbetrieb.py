@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import time
+import keyboard
 
 # Feste HSV-Werte einstellen
 hMin = 0
@@ -250,12 +251,8 @@ while True:
         perform_action_3()
 
     # Beenden, wenn die 'q'-Taste gedrückt wird oder die 's'-Taste als Not-Stop-Knopf
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):
+    if keyboard.is_pressed('q'):
         close_valve()  # Ventil schließen, wenn 'q' gedrückt wird
-        break
-    elif key == ord('s'):
-        close_valve()  # Not-Stop: Ventil schließen
         break
 
 # Webcam freigeben und Fenster schließen
