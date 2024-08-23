@@ -39,5 +39,5 @@ for n in range(1):
 	GPIO.output( Motor2_einfahren, GPIO.HIGH)
 	GPIO.output( Motor2_ausfahren, GPIO.LOW)
 	print("einfahren")
-	time.sleep(1)
+	time.sleep(10)
 GPIO.cleanup()
