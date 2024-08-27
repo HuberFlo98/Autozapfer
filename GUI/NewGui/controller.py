@@ -17,8 +17,6 @@ class Controller():
         frame.tkraise()
 
     def addFrame(self, key, frame):
-        print("test")
-        print(key)
         self.frames[key] = frame
 
     def open_keyboard(self):
