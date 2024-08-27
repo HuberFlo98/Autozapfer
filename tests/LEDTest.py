@@ -15,13 +15,13 @@ GPIO.output( LED1, GPIO.LOW)
 
 
 for n in range(10):
-	time.sleep(1)
+	time.sleep(2)
 	GPIO.output( LED2, GPIO.HIGH)
-	GPIO.output( LED1, GPIO.HIGH)
+	#GPIO.output( LED1, GPIO.HIGH)
 	print("on")
-	time.sleep(600)
-	# GPIO.output( LED2, GPIO.LOW)
-	# GPIO.output( LED1, GPIO.LOW)
-	# print("off")
+	time.sleep(2)
+	GPIO.output( LED2, GPIO.LOW)
+	#GPIO.output( LED1, GPIO.LOW)
+	print("off")
 
 GPIO.cleanup()

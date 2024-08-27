@@ -39,7 +39,7 @@ class FaceRecognition:
     face_recognised = False
     image_taken = False
     cancel = False
-    facecam_index = 0
+    facecam_index = "/dev/v4l/by-id/usb-AONI_ELECTRONIC_CO._Full_HD_webcam_AN202012050003-video-index0"
 
     def __init__(self):
         self.known_face_encodings = []

@@ -1,31 +1,52 @@
 import cv2
 import numpy as np
 import time
-import keyboard
+#import keyboard
+import Jetson.GPIO as GPIO
+GPIO.cleanup()
+GPIO.setmode(GPIO.BOARD)
+
+
+Motor2_einfahren = 35
+Motor2_ausfahren = 37
+Zapfhahn2 = 21
+LED1 = 13
+
+GPIO.setup(LED1, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(Motor2_einfahren, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(Motor2_ausfahren, GPIO.OUT, initial=GPIO.LOW)
+GPIO.output( LED1, GPIO.LOW)
+
+GPIO.output( Motor2_einfahren, GPIO.LOW)
+GPIO.output( Motor2_ausfahren, GPIO.LOW)
+
+GPIO.setup(Zapfhahn2, GPIO.OUT, initial=GPIO.HIGH)
+
+
 
 # Feste HSV-Werte einstellen
 hMin = 0
 sMin = 0
-vMin = 0
+vMin = 200
 hMax = 179
 sMax = 255
 vMax = 255
 
 # Mindestlänge für vertikale Kanten
-min_length = 50
+min_length = 100
 
 # Prozentsatz für die Grenzwerte relativ zur Bildbreite
-lower_bound_pct = 0.3  # 30% von der Bildbreite
-upper_bound_pct = 0.7  # 70% von der Bildbreite
+lower_bound_pct = 0.4  # 30% von der Bildbreite
+upper_bound_pct = 0.8  # 70% von der Bildbreite
 
 # Rechteck-Koordinaten (x, y, Breite, Höhe)
-rect_x = 100
-rect_y = 50
-rect_width = 600
-rect_height = 100
+rect_x = 0
+rect_y = 0
+rect_width = 1280
+rect_height = 960
 
 # Webcam initialisieren (0 für die Standard-Webcam)
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 if not cap.isOpened():
     print("Webcam konnte nicht geöffnet werden.")
@@ -72,17 +93,24 @@ action_status = "idle"
 
 def close_valve():
     """Ventil schließen."""
+    GPIO.output( Zapfhahn2, GPIO.HIGH)
     print("Ventil schließen")
+
 
 def perform_action_1():
     global action_status
     print("Aktion 1: Motor ausfahren")
+    GPIO.output( Motor2_einfahren, GPIO.LOW)
+    GPIO.output( Motor2_ausfahren, GPIO.HIGH)
     time.sleep(10)  # Motor ausfahren simuliert durch eine Zeitverzögerung
+    GPIO.output( Zapfhahn2, GPIO.LOW)
+    GPIO.output( LED1, GPIO.HIGH)
     print("Ventil aufmachen")
     action_status = "waiting_for_action_1"
 
 def perform_action_2():
     global action_status
+    GPIO.output( Zapfhahn2, GPIO.LOW)
     print("Aktion 2: Ventil aufmachen")
     action_status = "waiting_for_action_2"
 
@@ -90,6 +118,7 @@ def perform_action_3():
     global action_status
     close_valve()  # Ventil schließen bevor das Programm beendet wird
     print("Aktion 3: Programm beenden")
+    GPIO.output( LED1, GPIO.LOW)
     cap.release()
     cv2.destroyAllWindows()
     exit()
@@ -197,6 +226,8 @@ def wait_for_action_1():
         if lower_bound <= mean_x <= upper_bound:
             print("Kante zwischen Grenzwerten 1 und 2")
             close_valve()  # Ventil schließen bevor der Motor eingefahren wird
+            GPIO.output( Motor2_einfahren, GPIO.HIGH)
+            GPIO.output( Motor2_ausfahren, GPIO.LOW)
             print("Motor einfahren")
             time.sleep(10)
             action_status = "action_2"
@@ -264,10 +295,10 @@ while True:
     elif action_status == "action_3":
         perform_action_3()
 
-    # Beenden, wenn die 'q'-Taste gedrückt wird
-    if keyboard.is_pressed('q'):
-        close_valve()  # Ventil schließen, wenn 'q' gedrückt wird
-        break
+    # # Beenden, wenn die 'q'-Taste gedrückt wird
+    # if keyboard.is_pressed('q'):
+    #     close_valve()  # Ventil schließen, wenn 'q' gedrückt wird
+    #     break
 
 # Webcam freigeben und Fenster schließen
 cap.release()
