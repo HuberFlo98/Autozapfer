@@ -5,73 +5,81 @@ import tkinter as tk
 from tkinter import Text
 from PIL import Image, ImageTk
 
-# import Jetson.GPIO as GPIO
-# GPIO.cleanup()
-# GPIO.setmode(GPIO.BOARD)
+import Jetson.GPIO as GPIO
+GPIO.cleanup()
+GPIO.setmode(GPIO.BOARD)
 
+motor_active = False
+Motor2_einfahren = 35
+Motor2_ausfahren = 37
+Zapfhahn2 = 21
+LED1 = 11
 
-# Motor2_einfahren = 35
-# Motor2_ausfahren = 37
-# Zapfhahn2 = 21
-# LED1 = 11
+GPIO.setup(LED1, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(Motor2_einfahren, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(Motor2_ausfahren, GPIO.OUT, initial=GPIO.LOW)
+GPIO.output( LED1, GPIO.HIGH)
 
-# GPIO.setup(LED1, GPIO.OUT, initial=GPIO.LOW)
-# GPIO.setup(Motor2_einfahren, GPIO.OUT, initial=GPIO.LOW)
-# GPIO.setup(Motor2_ausfahren, GPIO.OUT, initial=GPIO.LOW)
-# GPIO.output( LED1, GPIO.HIGH)
+GPIO.output( Motor2_einfahren, GPIO.LOW)
+GPIO.output( Motor2_ausfahren, GPIO.LOW)
 
-# GPIO.output( Motor2_einfahren, GPIO.LOW)
-# GPIO.output( Motor2_ausfahren, GPIO.LOW)
-
-# GPIO.setup(Zapfhahn2, GPIO.OUT, initial=GPIO.HIGH)
+GPIO.setup(Zapfhahn2, GPIO.OUT, initial=GPIO.HIGH)
 
 def motor_ausfahren():
+    global motor_active
+    motor_active = True
     log_message("... Motor fährt aus")
     print("Motor fährt aus")
-    #GPIO.output(Motor2_ausfahren, GPIO.HIGH)
-    #GPIO.output(Motor2_einfahren, GPIO.LOW)
+    GPIO.output(Motor2_ausfahren, GPIO.HIGH)
+    GPIO.output(Motor2_einfahren, GPIO.LOW)
 
 def motor_einfahren():
+    global motor_active
+    motor_active = True
     log_message("... Motor fährt ein")
     print("Motor fährt ein")
-    #GPIO.output(Motor2_ausfahren, GPIO.LOW)
-    #GPIO.output(Motor2_einfahren, GPIO.HIGH)
+    GPIO.output(Motor2_ausfahren, GPIO.LOW)
+    GPIO.output(Motor2_einfahren, GPIO.HIGH)
 
 # Funktion, die nach 10 Sekunden ausgeführt wird, um den Ablauf fortzusetzen
 def Status1_Motor_ausgefahren():
+    global motor_active
+    motor_active = False
     log_message("Aktion für Status 1: Motor ausgefahren")
     print("Motor ist jetzt ausgefahren")
 
-    #GPIO.output(LED1, GPIO.HIGH)
+    GPIO.output(LED1, GPIO.HIGH)
     print("LED ON")
     log_message("Aktion für Status 1: LED ON")
 
-    #GPIO.output(Zapfhahn2, GPIO.LOW)
+    GPIO.output(Zapfhahn2, GPIO.LOW)
     print("Ventil aufmachen")
     log_message("Aktion für Status 1: Ventil aufmachen")
 
 
 
 def Status2_Motor_eingefahren():
+    global motor_active
+    motor_active = False
     log_message("Aktion für Status 2: Motor eingefahren")
     print("Motor ist jetzt eingefahren")
 
-    #GPIO.output( LED1, GPIO.HIGH)
-    print("LED ON")
-    log_message("Aktion für Status 2: LED ON")
+    GPIO.output( LED1, GPIO.LOW)
+    print("LED OFF")
+    log_message("Aktion für Status 2: LED OFF")
 
-    #GPIO.output( Zapfhahn2, GPIO.LOW)
+    GPIO.output( Zapfhahn2, GPIO.LOW)
     print("Ventil aufmachen")
     log_message("Aktion für Status 2: Ventil aufgemacht")
 
 
 def Status3_Motor_eingefahren():
-    #GPIO.output( LED1, GPIO.LOW)
+    GPIO.output( LED1, GPIO.LOW)
     print("LED OFF")
     log_message("Aktion für Status 3: LED OFF")
 
 def button_pressed_action():
-    #GPIO.output( LED1, GPIO.LOW)
+    GPIO.output( LED1, GPIO.LOW)
     print("LED OFF")
     log_message("Aktion für Status 3: LED OFF"  )
     log_message("Programm wird beendet.")
@@ -88,12 +96,14 @@ def button_pressed():
     log_message("Aktion für Button: Button gedrückt")
     print("Button gedrückt. Ventil wird geschlossen und Motor fährt herunter.")
 
-    #GPIO.output(Zapfhahn2, GPIO.HIGH)
+    GPIO.output(Zapfhahn2, GPIO.HIGH)
     log_message("Aktion für Button: Ventil geschlossen.")
     print("Ventil geschlossen.")
     # Motor fährt 10 Sekunden herunter
     motor_einfahren()
     root.after(10000, button_pressed_action)
+    global motor_active
+    motor_active = False
     root.after(10000, root_quit)
 
 def root_quit():
@@ -177,11 +187,11 @@ def update_frame():
     hMin, sMin, vMin, hMax, sMax, vMax = 0, 0, 255, 179, 255, 255
 
     # Mindestlänge für vertikale Kanten
-    min_length = 100
+    min_length = 110
 
     # Grenzwerte für den Mittelwert der X-Koordinaten
-    lower_bound = 200
-    upper_bound = 400
+    lower_bound = 100
+    upper_bound = 200
 
     #-----------------------------Bildverarbeitung------------------------------------#
 
@@ -239,7 +249,6 @@ def update_frame():
         mean_x = int(np.mean(x_coords))
         cv2.line(overlay, (mean_x, 0), (mean_x, overlay.shape[0]), (0, 0, 255), 2)
     #-----------------------------Auswertung------------------------------------#
-    if motor_ausfahren==False and motor_einfahren==False:
         if mean_x < lower_bound:
             position_status = 1
         elif mean_x > upper_bound:
@@ -253,51 +262,52 @@ def update_frame():
         btn.config(state=tk.NORMAL)  # Button aktivieren
     else:
         btn.config(state=tk.DISABLED)  # Button deaktivieren
-
-    if previous_position_status != position_status:
-        if position_status == 1 and not action2_executed:
-            log_message("Aktion für Status 1: Motor ausfahren")
-            motor_ausfahren()  # Starte den Motor
-            root.after(10000, Status1_Motor_ausgefahren)    
-
-
-        elif position_status == 2 and not action2_executed:
-            action2_executed = True
+    if not motor_active:
+        if previous_position_status != position_status:
+            if position_status == 1 and not action2_executed:
+                log_message("Aktion für Status 1: Motor ausfahren")
+                motor_ausfahren()  # Starte den Motor
+                root.after(10000, Status1_Motor_ausgefahren)    
 
 
-            #GPIO.output( Zapfhahn2, GPIO.HIGH)
-            print("Ventil schließen")
-            log_message("Aktion für Status 2: Ventil schließen")
+            elif position_status == 2 and not action2_executed:
+                action2_executed = True
 
 
-            motor_einfahren()
-            root.after(10000, Status2_Motor_eingefahren)
+                GPIO.output( Zapfhahn2, GPIO.HIGH)
+                print("Ventil schließen")
+                log_message("Aktion für Status 2: Ventil schließen")
+
+
+                motor_einfahren()
+                root.after(10000, Status2_Motor_eingefahren)
         
-        elif position_status == 3 and action2_executed == False:
-            log_message("Aktion für Status 3: Über Grenzwert 2")
-            print("Aktion für Status 3: Über Grenzwert 2")
+            elif position_status == 3 and action2_executed == False:
+                log_message("Aktion für Status 3: Über Grenzwert 2")
+                print("Aktion für Status 3: Über Grenzwert 2")
 
-            #GPIO.output(Zapfhahn2, GPIO.HIGH)
-            log_message("Aktion für Status 3: Ventil geschlossen.")
-            print("Ventil geschlossen") 
+                GPIO.output(Zapfhahn2, GPIO.HIGH)
+                log_message("Aktion für Status 3: Ventil geschlossen.")
+                print("Ventil geschlossen") 
 
-            motor_einfahren()
-            root.after(10000, Status3_Motor_eingefahren)
-            root.after(10000, root_quit)
+                motor_einfahren()
+                root.after(10000, Status3_Motor_eingefahren)
+                root.after(10000, root_quit)
 
-        elif position_status == 3 and action2_executed == True:
-            log_message("Aktion für Status 3: Über Grenzwert. Keine weitere Aktion möglich.")
-            print("Aktion für Status 3: Über Grenzwert 2")
+            elif position_status == 3 and action2_executed == True:
+                log_message("Aktion für Status 3: Über Grenzwert. Keine weitere Aktion möglich.")
+                print("Aktion für Status 3: Über Grenzwert 2")
 
 
-            #GPIO.output( Zapfhahn2, GPIO.HIGH)
-            print("Ventil schließen")            
-            log_message("Aktion für Status 3: Ventil schließen")
+                GPIO.output( Zapfhahn2, GPIO.HIGH)
+                print("Ventil schließen")            
+                log_message("Aktion für Status 3: Ventil schließen")
 
-            #GPIO.output( LED1, GPIO.LOW)
-            print("LED OFF")
-            log_message("Aktion für Status 3: LED OFF")
-            root_quit()
+                GPIO.output( LED1, GPIO.LOW)
+                print("LED OFF")
+                log_message("Aktion für Status 3: LED OFF")
+
+                root_quit()
 
     # Grenzwerte als vertikale Linien einzeichnen
     cv2.line(overlay, (lower_bound, 0), (lower_bound, overlay.shape[0]), (0, 255, 255), 2)
